@@ -1,12 +1,14 @@
-require('dotenv').config();
-const express = require('express');
-const http = require('http');
-const { Server } = require('socket.io');
-const cors = require('cors');
-const path = require('path');
-const fs = require('fs');
+import 'dotenv/config';
+import express from 'express';
+import http from 'http';
+import { Server } from 'socket.io';
+import cors from 'cors';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { TikTokLiveConnection, WebcastEvent } from 'tiktok-live-connector';
 
-const { WebcastPushConnection } = require('tiktok-live-connector');
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const server = http.createServer(app);
@@ -20,10 +22,10 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // ---- OYUN STATE ----
 let game = {
-  claimed: {}, // provinceId -> {username, ts, color}
-  users: {},   // username -> {coins, lands, followed, likesGiven, color, lastSeen}
+  claimed: {},
+  users: {},
   config: {
-    coin_cost: 1,
+    coin_cost: 1, // 1 JETON = 1 TOPRAK – KİLİTLİ
     like_per_coin: parseInt(process.env.LIKE_PER_COIN || '3'),
     follow_required: (process.env.FOLLOW_REQUIRED || 'true') === 'true',
     follow_bonus: parseInt(process.env.FOLLOW_BONUS || '1'),
@@ -41,15 +43,16 @@ let game = {
   tiktok: {
     connected: false,
     username: null,
-    mode: 'sim'
+    mode: 'sim',
+    roomId: null
   }
 };
 
-// renk havuzu
 const COLORS = ['#fe2c55','#25f4ee','#ffd166','#7c5cff','#00e676','#ff7ab6','#4cc9f0','#fca311','#ff595e','#8ac926','#ffca3a','#6a4c93','#00bbf9','#f15bb5','#9b5de5','#00f5d4','#ff9f1c','#2ec4b6','#e71d36','#06d6a0','#118ab2','#ef476f','#ffd60a','#fb5607'];
 function userColor(u){ let h=0; for(let i=0;i<u.length;i++) h=(h*31+u.charCodeAt(i))>>>0; return COLORS[h % COLORS.length]; }
 
 function ensureUser(username){
+  if(!username) username = 'anon_'+Math.floor(Math.random()*9999);
   if(!game.users[username]){
     game.users[username] = {
       username,
@@ -69,14 +72,15 @@ function ensureUser(username){
 function recountLands(){
   Object.values(game.users).forEach(u=> u.lands = 0);
   Object.values(game.claimed).forEach(c=>{
-    if(game.users[c.username]) game.users[c.username].lands++;
+    const owner = c.username || c;
+    if(game.users[owner]) game.users[owner].lands++;
   });
 }
 
-// başlangıç botları
+// starter bots
 const STARTER_BOTS = (process.env.BOT_USERS || 'emirhan.exe,zeynep_23,burak Reis,Ayaz_34,elifsu,karadeniz61,mehmet_ank,pelin.q,gamerkurt,sultan_fatih,xXShadowXx,dilaraa,mertcan.06,busra_tiktok,efe_boss,nilay.ist').split(',');
 if(game.config.auto_bot){
-  STARTER_BOTS.forEach((u,i)=>{
+  STARTER_BOTS.forEach(u=>{
     const user = ensureUser(u.trim());
     user.coins = 2 + Math.floor(Math.random()*5);
     user.followed = true;
@@ -86,23 +90,14 @@ if(game.config.auto_bot){
 // ---- API ----
 app.get('/api/state', (req,res)=>{
   recountLands();
-  res.json({
-    ok:true,
-    claimed: game.claimed,
-    users: game.users,
-    stats: game.stats,
-    config: game.config,
-    tiktok: game.tiktok
-  });
+  res.json({ ok:true, claimed: game.claimed, users: game.users, stats: game.stats, config: game.config, tiktok: game.tiktok });
 });
-
 app.post('/api/claim', (req,res)=>{
   const { provinceId, username } = req.body || {};
   if(!provinceId || !username) return res.status(400).json({ok:false, error:'provinceId & username required'});
   const r = doClaim(Number(provinceId), String(username));
   res.json(r);
 });
-
 app.post('/api/action', (req,res)=>{
   const { type, username, amount } = req.body || {};
   if(!type || !username) return res.status(400).json({ok:false});
@@ -111,7 +106,10 @@ app.post('/api/action', (req,res)=>{
   if(type==='like'){
     game.stats.likes += amount || 1;
     u.likesGiven += amount || 1;
-    if(u.likesGiven % game.config.like_per_coin === 0){ u.coins++; gained=1; }
+    while(u.likesGiven >= game.config.like_per_coin){
+      u.likesGiven -= game.config.like_per_coin;
+      u.coins++; gained++;
+    }
     io.emit('live_event', {type:'like', username, amount: amount||1, coins:gained});
   }
   if(type==='follow'){
@@ -132,7 +130,6 @@ app.post('/api/action', (req,res)=>{
   }
   res.json({ok:true, user:u, gained});
 });
-
 app.post('/api/connect', async (req,res)=>{
   const { username, mode } = req.body || {};
   if(!username) return res.status(400).json({ok:false, error:'username required'});
@@ -143,40 +140,38 @@ app.post('/api/connect', async (req,res)=>{
     res.status(500).json({ok:false, error: e.message});
   }
 });
-
-app.post('/api/disconnect', (req,res)=>{
-  disconnectTikTok();
-  res.json({ok:true});
-});
-
+app.post('/api/disconnect', (req,res)=>{ disconnectTikTok(); res.json({ok:true}); });
 app.post('/api/reset', (req,res)=>{
   game.claimed = {};
   Object.values(game.users).forEach(u=>{ u.lands=0; u.coins = 2 + Math.floor(Math.random()*3); });
   io.emit('map_reset');
   res.json({ok:true});
 });
-
 app.post('/api/config', (req,res)=>{
   const cfg = req.body || {};
-  // coin_cost kilitli 1
-  game.config.like_per_coin = Math.max(1, parseInt(cfg.like_per_coin) || game.config.like_per_coin);
-  game.config.follow_required = !!cfg.follow_required;
-  game.config.follow_bonus = parseInt(cfg.follow_bonus) || game.config.follow_bonus;
-  game.config.max_land_per_user = parseInt(cfg.max_land_per_user) || game.config.max_land_per_user;
-  game.config.double_claim_block = cfg.double_claim_block !== false;
-  game.config.auto_bot = !!cfg.auto_bot;
-  game.config.auto_speed_ms = parseInt(cfg.auto_speed_ms) || game.config.auto_speed_ms;
+  // coin_cost always 1
+  if(cfg.like_per_coin) game.config.like_per_coin = Math.max(1, parseInt(cfg.like_per_coin));
+  if(typeof cfg.follow_required === 'boolean') game.config.follow_required = cfg.follow_required;
+  if(cfg.follow_bonus !== undefined) game.config.follow_bonus = parseInt(cfg.follow_bonus) || 1;
+  if(cfg.max_land_per_user) game.config.max_land_per_user = parseInt(cfg.max_land_per_user);
+  if(typeof cfg.double_claim_block === 'boolean') game.config.double_claim_block = cfg.double_claim_block;
+  if(typeof cfg.auto_bot === 'boolean') game.config.auto_bot = cfg.auto_bot;
+  if(cfg.auto_speed_ms) game.config.auto_speed_ms = parseInt(cfg.auto_speed_ms);
   io.emit('config_update', game.config);
   res.json({ok:true, config: game.config});
 });
+app.get('/health', (req,res)=> res.json({ok:true, uptime: process.uptime(), provinces_claimed: Object.keys(game.claimed).length, tiktok_connected: game.tiktok.connected}));
+// fallback SPA
+app.get('*', (req,res)=>{
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 
-app.get('/health', (req,res)=> res.json({ok:true, uptime: process.uptime(), provinces_claimed: Object.keys(game.claimed).length}));
-
-// ---- CLAIM LOGIC ----
+// ---- CLAIM ----
 function doClaim(provinceId, username){
   const u = ensureUser(username);
-  if(game.claimed[provinceId] && game.config.double_claim_block){
-    return {ok:false, reason:'already_claimed', owner: game.claimed[provinceId].username };
+  const existing = game.claimed[provinceId];
+  if(existing && game.config.double_claim_block){
+    return {ok:false, reason:'already_claimed', owner: existing.username || existing };
   }
   if(game.config.follow_required && !u.followed){
     return {ok:false, reason:'follow_required'};
@@ -184,7 +179,7 @@ function doClaim(provinceId, username){
   if(u.coins < game.config.coin_cost){
     return {ok:false, reason:'no_coins', need: game.config.coin_cost, have: u.coins};
   }
-  if(u.lands >= game.config.max_land_per_user){
+  if((u.lands||0) >= game.config.max_land_per_user){
     return {ok:false, reason:'max_land'};
   }
   u.coins -= game.config.coin_cost;
@@ -194,111 +189,164 @@ function doClaim(provinceId, username){
   return {ok:true, provinceId, username};
 }
 
-// ---- TIKTOK LIVE ----
+// ---- TIKTOK LIVE v2 ----
 let tiktokConnection = null;
 
 async function connectTikTok(tiktokUsername, mode='tiktok'){
   disconnectTikTok();
-  if(mode === 'sim'){
-    game.tiktok = { connected: true, username: tiktokUsername, mode: 'sim' };
+  const clean = tiktokUsername.replace('@','').trim();
+  if(mode === 'sim' || clean === '' || clean.toLowerCase() === 'sim'){
+    game.tiktok = { connected: true, username: clean||'sim', mode: 'sim', roomId: null };
     io.emit('tiktok_status', game.tiktok);
     return game.tiktok;
   }
-  const clean = tiktokUsername.replace('@','').trim();
-  const conn = new WebcastPushConnection(clean, {
-    processInitialData: true,
-    enableExtendedGiftInfo: true,
-    enableWebsocketUpgrade: true,
-    requestPollingIntervalMs: 1200,
-    // session cookie opsiyonel: process.env.TIKTOK_SESSIONID
-  });
 
-  conn.connect().then(state => {
-    console.log(`[TikTok] Connected to @${clean} - room ${state.roomId}`);
-    game.tiktok = { connected:true, username: clean, mode:'tiktok', roomId: state.roomId };
-    io.emit('tiktok_status', game.tiktok);
-  }).catch(err=>{
-    console.error('[TikTok] connect failed', err.message);
-    game.tiktok = { connected:false, username: clean, mode:'tiktok', error: err.message };
-    io.emit('tiktok_status', game.tiktok);
-  });
+  try {
+    const connection = new TikTokLiveConnection(clean, {
+      enableExtendedGiftInfo: true,
+      processInitialData: true,
+      fetchRoomInfoOnConnect: true,
+      // signApiKey: process.env.TIKTOK_SIGN_API_KEY || undefined,
+      // session: process.env.TIKTOK_SESSIONID ? { cookie: process.env.TIKTOK_SESSIONID } : undefined
+    });
 
-  conn.on('chat', data=>{
-    const uname = data.uniqueId;
-    ensureUser(uname);
-    io.emit('live_event', {type:'chat', username: uname, comment: data.comment});
-    // chatte "al 34" gibi komut varsa il fethet
-    const m = data.comment.match(/\b(?:al|fetih|claim)\s+(\d{1,2})\b/i);
-    if(m){
-      const pid = parseInt(m[1]);
-      if(pid>=1 && pid<=81){
-        const r = doClaim(pid, uname);
-        if(!r.ok && r.reason==='follow_required'){
-          io.emit('live_event', {type:'need_follow', username: uname});
+    // CHAT
+    connection.on(WebcastEvent.CHAT, data => {
+      const uname = data?.user?.uniqueId || data?.user?.nickname || 'anon';
+      ensureUser(uname);
+      io.emit('live_event', {type:'chat', username: uname, comment: data?.comment || ''});
+      // komut: al 34 / fetih 6
+      const m = (data?.comment || '').match(/\b(?:al|fetih|claim)\s+(\d{1,2})\b/i);
+      if(m){
+        const pid = parseInt(m[1],10);
+        if(pid>=1 && pid<=81){
+          const r = doClaim(pid, uname);
+          if(!r.ok && r.reason==='follow_required'){
+            io.emit('live_event', {type:'need_follow', username: uname});
+          }
         }
       }
-    }
-  });
+    });
 
-  conn.on('like', data=>{
-    const uname = data.uniqueId;
-    const u = ensureUser(uname);
-    const count = data.likeCount || 1;
-    game.stats.likes += count;
-    u.likesGiven += count;
-    let gained = 0;
-    while(u.likesGiven >= game.config.like_per_coin){
-      u.likesGiven -= game.config.like_per_coin;
-      u.coins++;
-      gained++;
-    }
-    io.emit('live_event', {type:'like', username: uname, amount: count, coins: gained, totalLikes: data.totalLikeCount});
-  });
+    // LIKE
+    connection.on(WebcastEvent.LIKE, data => {
+      const uname = data?.user?.uniqueId || 'anon';
+      const u = ensureUser(uname);
+      const count = data?.likeCount || 1;
+      game.stats.likes += count;
+      u.likesGiven += count;
+      let gained = 0;
+      while(u.likesGiven >= game.config.like_per_coin){
+        u.likesGiven -= game.config.like_per_coin;
+        u.coins++; gained++;
+      }
+      io.emit('live_event', {type:'like', username: uname, amount: count, coins: gained, totalLikes: data?.totalLikeCount});
+      if(gained) io.emit('user_update', {username: uname, user: u});
+    });
 
-  conn.on('follow', data=>{
-    const uname = data.uniqueId;
-    const u = ensureUser(uname);
-    if(!u.followed){
-      u.followed = true;
-      u.coins += game.config.follow_bonus;
-      game.stats.followers++;
-      io.emit('live_event', {type:'follow', username: uname, coins: game.config.follow_bonus});
-    }
-  });
+    // FOLLOW
+    const handleFollow = (data) => {
+      const uname = data?.user?.uniqueId;
+      if(!uname) return;
+      const u = ensureUser(uname);
+      if(!u.followed){
+        u.followed = true;
+        u.coins += game.config.follow_bonus;
+        game.stats.followers++;
+        io.emit('live_event', {type:'follow', username: uname, coins: game.config.follow_bonus});
+        io.emit('user_update', {username: uname, user: u});
+      }
+    };
+    // v2 has both FOLLOW and SOCIAL
+    if(WebcastEvent.FOLLOW) connection.on(WebcastEvent.FOLLOW, handleFollow);
+    connection.on(WebcastEvent.SOCIAL, data => {
+      // data.displayType can be 'follow' / 'share'
+      const action = data?.displayType || data?.action || '';
+      if(String(action).toLowerCase().includes('follow')){
+        handleFollow(data);
+      } else {
+        const uname = data?.user?.uniqueId;
+        if(uname) io.emit('live_event', {type:'share', username: uname});
+      }
+    });
+    connection.on(WebcastEvent.SHARE, data => {
+      const uname = data?.user?.uniqueId;
+      if(uname) io.emit('live_event', {type:'share', username: uname});
+    });
 
-  conn.on('share', data=>{
-    io.emit('live_event', {type:'share', username: data.uniqueId});
-  });
+    // GIFT
+    connection.on(WebcastEvent.GIFT, data => {
+      const repeatEnd = data?.repeatEnd;
+      const giftType = data?.giftDetails?.giftType;
+      if(giftType === 1 && !repeatEnd) return; // streak intermediate skip
+      const uname = data?.user?.uniqueId;
+      if(!uname) return;
+      const u = ensureUser(uname);
+      // diamondCount yoksa repeatCount kullan
+      const diamonds = data?.diamondCount || data?.repeatCount || 1;
+      const coins = Math.max(1, Math.floor(diamonds / 5) || 1);
+      u.coins += coins;
+      io.emit('live_event', {
+        type:'gift',
+        username: uname,
+        gift: data?.giftDetails?.giftName || `gift_${data?.giftId}`,
+        amount: coins,
+        repeat: data?.repeatCount
+      });
+      io.emit('user_update', {username: uname, user: u});
+    });
 
-  conn.on('gift', data=>{
-    if(data.giftType===1 && !data.repeatEnd) return; // skip streak intermediate
-    const uname = data.uniqueId;
-    const u = ensureUser(uname);
-    // diamondCount -> coin çevir
-    const coins = Math.max(1, Math.floor((data.diamondCount||1) / 5));
-    u.coins += coins;
-    io.emit('live_event', {type:'gift', username: uname, gift: data.giftName, amount: coins, repeat: data.repeatCount});
-  });
+    // ROOM USER (viewer count)
+    connection.on(WebcastEvent.ROOM_USER, data => {
+      if(data?.viewerCount) {
+        game.stats.viewers = data.viewerCount;
+        io.emit('stats_update', { viewers: data.viewerCount });
+      }
+    });
 
-  conn.on('roomUser', data=>{
-    game.stats.viewers = data.viewerCount;
-    io.emit('stats_update', { viewers: data.viewerCount });
-  });
+    // MEMBER JOIN
+    connection.on(WebcastEvent.MEMBER, data => {
+      const uname = data?.user?.uniqueId;
+      if(uname){
+        ensureUser(uname);
+        io.emit('live_event', {type:'join', username: uname});
+      }
+    });
 
-  conn.on('disconnected', ()=>{
-    console.log('[TikTok] disconnected');
-    game.tiktok.connected = false;
+    // Control events
+    connection.on('connected', state => {
+      console.log(`[TikTok] connected roomId=${state.roomId}`);
+      game.tiktok = { connected: true, username: clean, mode: 'tiktok', roomId: state.roomId };
+      io.emit('tiktok_status', game.tiktok);
+    });
+    connection.on('disconnected', () => {
+      console.log('[TikTok] disconnected');
+      game.tiktok.connected = false;
+      io.emit('tiktok_status', game.tiktok);
+    });
+    connection.on('error', err => {
+      console.error('[TikTok] error', err?.message || err);
+      io.emit('live_event', {type:'error', message: String(err?.message || err)});
+    });
+
+    // CONNECT
+    const state = await connection.connect();
+    tiktokConnection = connection;
+    game.tiktok = { connected: true, username: clean, mode: 'tiktok', roomId: state.roomId };
     io.emit('tiktok_status', game.tiktok);
-  });
+    return game.tiktok;
 
-  tiktokConnection = conn;
-  game.tiktok = { connected:false, username: clean, mode:'tiktok', connecting:true };
-  return game.tiktok;
+  } catch (err) {
+    console.error('[TikTok] connect failed', err);
+    game.tiktok = { connected:false, username: clean, mode:'tiktok', error: err.message };
+    io.emit('tiktok_status', game.tiktok);
+    throw err;
+  }
 }
 
 function disconnectTikTok(){
   if(tiktokConnection){
-    try{ tiktokConnection.disconnect(); }catch{}
+    try { tiktokConnection.disconnect(); } catch(e){}
     tiktokConnection = null;
   }
   game.tiktok.connected = false;
@@ -306,7 +354,6 @@ function disconnectTikTok(){
 
 // ---- SOCKET.IO ----
 io.on('connection', socket=>{
-  // console.log('client', socket.id);
   socket.emit('state_snapshot', {
     claimed: game.claimed,
     users: game.users,
@@ -322,16 +369,17 @@ io.on('connection', socket=>{
 
   socket.on('action', ({type, username, amount}, cb)=>{
     const u = ensureUser(username);
-    let out = {ok:true};
+    let out = {ok:true, gained:0};
     if(type==='like'){
-      game.stats.likes += amount||1;
-      u.likesGiven += amount||1;
-      if(u.likesGiven >= game.config.like_per_coin){
-        const gain = Math.floor(u.likesGiven / game.config.like_per_coin);
-        u.likesGiven %= game.config.like_per_coin;
-        u.coins += gain;
-        out.gained = gain;
+      const inc = amount||1;
+      game.stats.likes += inc;
+      u.likesGiven += inc;
+      let gained=0;
+      while(u.likesGiven >= game.config.like_per_coin){
+        u.likesGiven -= game.config.like_per_coin;
+        u.coins++; gained++;
       }
+      out.gained = gained;
     }
     if(type==='follow' && !u.followed){
       u.followed=true; u.coins+=game.config.follow_bonus; game.stats.followers++;
@@ -347,34 +395,40 @@ io.on('connection', socket=>{
   socket.on('get_state', cb=> cb && cb({claimed:game.claimed, users:game.users, stats:game.stats, config:game.config}));
 });
 
-// ---- AUTO BOT SIM ----
-setInterval(()=>{
+// ---- AUTO BOT ----
+let botTimer = null;
+function startBot(){
+  if(botTimer) clearInterval(botTimer);
   if(!game.config.auto_bot) return;
-  const pool = Object.values(game.users).filter(u=> game.config.follow_required ? u.followed : true);
-  if(!pool.length) return;
-  const u = pool[Math.floor(Math.random()*pool.length)];
-  // 60% claim dene
-  if(Math.random()<0.6 && u.coins >= game.config.coin_cost){
-    const free = [];
-    for(let i=1;i<=81;i++){ if(!game.claimed[i]) free.push(i); }
-    if(free.length){
-      doClaim(free[Math.floor(Math.random()*free.length)], u.username);
+  botTimer = setInterval(()=>{
+    const pool = Object.values(game.users).filter(u=> game.config.follow_required ? u.followed : true);
+    if(!pool.length) return;
+    const u = pool[Math.floor(Math.random()*pool.length)];
+    if(Math.random()<0.6 && u.coins >= game.config.coin_cost){
+      const free = [];
+      for(let i=1;i<=81;i++){ if(!game.claimed[i]) free.push(i); }
+      if(free.length) doClaim(free[Math.floor(Math.random()*free.length)], u.username);
+    } else {
+      if(Math.random()<0.4) u.coins++;
+      game.stats.likes += Math.floor(Math.random()*35);
     }
-  } else {
-    // beğeni kazandır
-    if(Math.random()<0.5){ u.coins++; }
-    game.stats.likes += Math.floor(Math.random()*40);
-  }
-  game.stats.viewers += Math.floor(Math.random()*9-4);
-}, game.config.auto_speed_ms);
+    game.stats.viewers += Math.floor(Math.random()*7-3);
+    if(game.stats.viewers < 8000) game.stats.viewers = 8000 + Math.floor(Math.random()*3000);
+  }, game.config.auto_speed_ms);
+}
+startBot();
+// config değişince bot hızını güncelle
+setInterval(()=>{ startBot(); }, 5000);
 
 // ---- START ----
 server.listen(PORT, '0.0.0.0', ()=>{
-  console.log(`🇹🇷 Türkiye Fetih LIVE running on http://localhost:${PORT}`);
-  console.log(`1 JETON = 1 TOPRAK | FOLLOW_REQUIRED=${game.config.follow_required}`);
-  // otomatik TikTok bağlan env varsa
+  console.log(`🇹🇷 Türkiye Fetih LIVE – http://localhost:${PORT}`);
+  console.log(`1 JETON = 1 TOPRAK | FOLLOW_REQUIRED=${game.config.follow_required} | LIKE_PER_COIN=${game.config.like_per_coin}`);
   if(process.env.TIKTOK_USERNAME){
-    console.log(`Auto-connecting TikTok @${process.env.TIKTOK_USERNAME}...`);
-    connectTikTok(process.env.TIKTOK_USERNAME, 'tiktok').catch(e=> console.error(e.message));
+    console.log(`Auto-connect TikTok @${process.env.TIKTOK_USERNAME} ...`);
+    connectTikTok(process.env.TIKTOK_USERNAME, 'tiktok').catch(e=> console.error('TikTok auto-connect failed:', e.message));
   }
 });
+
+// graceful
+process.on('SIGTERM', ()=>{ disconnectTikTok(); server.close(()=>process.exit(0)); });
