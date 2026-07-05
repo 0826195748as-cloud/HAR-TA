@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TikTok Türkiye Fetih – YATAY • 1 Jeton 1 Toprak</title>
+<style>
+:root{
+  --tt-pink:#fe2c55;
+  --tt-cyan:#25f4ee;
+  --bg:#070a14;
+  --panel:#14182bf2;
+  --panel2:#1b2140f5;
+  --gold:#ffd166;
+  --green:#00e676;
+  --text:#f2f4ff;
+  --muted:#9aa3c7;
+  --border:#2a3058;
+  --red:#ff4d6a;
+}
+*{box-sizing:border-box;margin:0;padding:0;font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+html,body{height:100%;background:#000;color:var(--text);overflow:hidden}
+.stage{
+  width:100%;max-width:1380px;height:100dvh;margin:0 auto;
+  background:
+    radial-gradient(1100px 700px at 15% -10%, #18204a 0%, transparent 55%),
+    radial-gradient(900px 600px at 95% 120%, #1a0f38 0%, transparent 50%),
+    linear-gradient(180deg,#0a0c1b,#070813 60%, #05060f);
+  display:flex;flex-direction:column;position:relative;
+  border-left:1px solid #181d3a;border-right:1px solid #181d3a;
+}
+/* TOP BAR */
+.topbar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 18px;
+  background:linear-gradient(180deg,rgba(12,15,34,.96),rgba(12,15,34,.78));
+  border-bottom:1px solid var(--border);
+  backdrop-filter:blur(10px);
+  z-index:50;
+}
+.brand{display:flex;align-items:center;gap:12px}
+.brand .logo{
+  width:44px;height:44px;border-radius:13px;
+  background:conic-gradient(from 200deg, var(--tt-pink), var(--tt-cyan), #7c5cff, var(--tt-pink));
+  display:flex;align-items:center;justify-content:center;font-weight:900;font-size:16px;color:#fff;
+  box-shadow:0 0 18px rgba(254,44,85,.22);
+}
+.brand h1{font-size:17px;font-weight:850;letter-spacing:.2px}
+.brand small{display:block;font-size:11px;color:var(--muted);font-weight:600;margin-top:1px}
+.top-stats{display:flex;gap:22px;align-items:center}
+.ts{text-align:center}
+.ts b{display:block;font-size:15px}
+.ts span{font-size:11px;color:var(--muted)}
+.livepill{background:var(--tt-pink);padding:4px 10px;border-radius:999px;font-size:11px;font-weight:850;letter-spacing:.4px;display:inline-flex;align-items:center;gap:6px}
+.dot{width:7px;height:7px;background:#fff;border-radius:50%;animation:blink 1.2s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* MAIN HORIZONTAL LAYOUT */
+.main{
+  flex:1;display:grid;
+  grid-template-columns: 1fr 380px;
+  overflow:hidden;
+  min-height:0;
+}
+@media (max-width:1020px){
+  .main{grid-template-columns:1fr}
+  .right-col{display:none}
+}
+
+/* MAP COLUMN */
+.map-col{
+  position:relative;display:flex;flex-direction:column;min-width:0;
+  border-right:1px solid #1c2142;
+}
+.map-toolbar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:9px 14px;
+  background:#0f1330d6;
+  border-bottom:1px solid #23284f;
+  font-size:12px;font-weight:650;
+  z-index:35;
+}
+.map-toolbar .left-tools{display:flex;gap:14px;align-items:center;color:#c8cef0}
+.mt-stat b{color:#fff}
+.chip-sm{
+  background:#1a1f43;border:1px solid #2d3566;color:#cdd3f5;
+  padding:5px 10px;border-radius:999px;font-size:11px;font-weight:700;cursor:pointer;user-select:none;
+}
+.chip-sm.on{background:#263578;border-color:#4c6fff;color:#fff}
+
+/* SETTINGS GEAR over map */
+.map-gear{
+  position:absolute; top:56px; right:14px; z-index:44;
+  width:46px;height:46px;border-radius:14px;
+  background:#121735e8;border:1px solid #33407a;
+  backdrop-filter:blur(10px);
+  display:flex;align-items:center;justify-content:center;
+  font-size:22px;cursor:pointer;
+  box-shadow:0 8px 26px rgba(0,0,0,.45);
+  transition:transform .12s, background .15s;
+}
+.map-gear:hover{transform:rotate(28deg) scale(1.04);background:#18204a}
+.map-gear small{
+  position:absolute;bottom:-7px;font-size:9px;background:#fe2c55;color:#fff;
+  padding:1px 6px;border-radius:999px;font-weight:800;letter-spacing:.3px
+}
+
+.map-stage{
+  flex:1;position:relative;overflow:hidden;
+  display:flex;align-items:center;justify-content:center;
+  background:
+    radial-gradient(circle at 35% 40%, #19204d55 0%, transparent 45%),
+    radial-gradient(circle at 80% 70%, #20123f44 0%, transparent 40%);
+}
+#turkey-map{width:100%;height:100%;max-height:100%}
+.map-svg{width:100%;height:98%;}
+.province{
+  stroke:#090c1d;stroke-width:.9;cursor:pointer;transition:fill .16s, filter .16s, stroke-width .16s;
+  fill:#293059;
+}
+.province.unclaimed{fill:#293059}
+.province:hover{stroke:#fff;stroke-width:1.8;filter:brightness(1.22)}
+.province.claimed{stroke:#0d1128}
+.province.selected{stroke:#ffd166 !important;stroke-width:2.4 !important;filter:drop-shadow(0 0 8px rgba(255,209,102,.45))}
+.province-label{
+  font-size:8.5px;fill:#d9deff;pointer-events:none;text-anchor:middle;font-weight:700;
+  paint-order:stroke;stroke:#080b19;stroke-width:1.2px;stroke-linejoin:round;opacity:.93
+}
+
+/* live feed overlay left bottom */
+.live-feed{
+  position:absolute;left:14px;bottom:14px;width:300px;max-height:210px;overflow:hidden;z-index:30;
+  mask-image:linear-gradient(to top, black 70%, transparent);
+  pointer-events:none;
+}
+.feed-item{
+  font-size:12.5px;background:#0d1129cc;border:1px solid #2a3261;
+  padding:7px 10px;border-radius:12px;margin-bottom:6px;backdrop-filter:blur(7px);
+  animation:feedIn .3s ease;line-height:1.38
+}
+@keyframes feedIn{from{transform:translateY(12px);opacity:0}to{transform:none;opacity:1}}
+.fuser{color:var(--tt-cyan);font-weight:780}
+.fgift{color:var(--gold)}
+.flike{color:#ff6b9a}
+
+/* ruler floating window - AYRI PENCERE */
+.ruler-window{
+  position:absolute;right:16px;top:56px;width:250px;
+  background:var(--panel);border:1px solid var(--border);border-radius:18px;
+  box-shadow:0 18px 50px rgba(0,0,0,.6);z-index:45;overflow:hidden;
+  backdrop-filter:blur(16px);
+}
+.ruler-header{
+  padding:11px 13px;background:linear-gradient(135deg,#242b58,#1a1f44);
+  border-bottom:1px solid var(--border);cursor:grab;display:flex;align-items:center;justify-content:space-between;user-select:none
+}
+.ruler-header h3{font-size:13.5px;font-weight:850}
+.ruler-min{background:transparent;border:none;color:var(--muted);font-size:18px;cursor:pointer}
+.ruler-body{max-height:380px;overflow:auto;padding:9px}
+.ruler-item{
+  display:flex;align-items:center;gap:9px;padding:8px 9px;border-radius:12px;margin-bottom:5px;
+  background:#1a1f3ce0;border:1px solid #29305a;
+}
+.ruler-item.top1{background:linear-gradient(135deg,#3d2d00,#241a00);border-color:#c08a00}
+.ruler-item.top2{background:linear-gradient(135deg,#2e3139,#22252c);border-color:#6b707c}
+.ruler-item.top3{background:linear-gradient(135deg,#3b1d05,#281204);border-color:#b05d18}
+.r-rank{width:30px;text-align:center;font-weight:900;font-size:12px;color:var(--gold)}
+.r-avatar{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:850;font-size:12px;color:#fff;flex-shrink:0}
+.r-info{flex:1;min-width:0}
+.r-name{font-size:12.5px;font-weight:750;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.r-lands{font-size:10.5px;color:var(--muted)}
+.r-count{font-weight:900;color:var(--gold);font-size:14px}
+.ruler-window.min .ruler-body{display:none}
+.ruler-body::-webkit-scrollbar{width:5px}
+.ruler-body::-webkit-scrollbar-thumb{background:#303965;border-radius:4px}
+
+/* RIGHT COLUMN */
+.right-col{
+  background:linear-gradient(180deg,#0d1026f5,#0b0e20f5);
+  display:flex;flex-direction:column;min-height:0;
+}
+.right-tabs{
+  display:flex;border-bottom:1px solid var(--border);background:#0f1433;
+}
+.rtab{
+  flex:1;padding:10px 6px;text-align:center;font-size:12px;font-weight:750;color:var(--muted);cursor:pointer;
+  border-bottom:2px solid transparent;
+}
+.rtab.active{color:#fff;border-bottom-color:var(--tt-pink);background:#171c46}
+.right-body{flex:1;overflow:auto;padding:14px}
+.rcard{
+  background:#141a38;border:1px solid #2a325f;border-radius:14px;padding:12px;margin-bottom:12px;
+}
+.rcard h4{font-size:13px;margin-bottom:8px}
+.muted{color:var(--muted);font-size:12px;line-height:1.45}
+
+/* user control card */
+.user-card{display:flex;align-items:center;gap:11px}
+.u-avatar-big{width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:16px;color:#fff;flex-shrink:0}
+.u-meta{flex:1}
+.u-meta .uname{font-weight:800;font-size:14px}
+.u-meta .usub{font-size:11px;color:var(--muted);margin-top:2px}
+.coin-big{
+  background:linear-gradient(135deg,#3f3200,#251c00);
+  border:1px solid #7a5f00;color:var(--gold);padding:8px 13px;border-radius:999px;font-weight:900;font-size:14px
+}
+
+/* buttons */
+.btn{border:none;border-radius:12px;padding:11px 10px;font-weight:800;font-size:13px;cursor:pointer;color:#fff;transition:transform .07s, filter .15s}
+.btn:active{transform:scale(.97)}
+.btn-pink{background:var(--tt-pink)}
+.btn-dark{background:#20274e;border:1px solid #36407a}
+.btn-gold{background:linear-gradient(135deg,#ffb020,#ff5a24)}
+.btn-green{background:linear-gradient(135deg,#00d782,#00b86b);color:#04291b}
+.btn:disabled{filter:grayscale(.65) brightness(.65);cursor:not-allowed}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.full{width:100%}
+
+.selbox{
+  background:#171c3e;border:1px solid #2f3970;border-radius:12px;padding:10px 12px;
+  display:flex;align-items:center;justify-content:space-between;margin:10px 0;font-size:13px
+}
+.sel-free{color:var(--green);font-weight:800}
+.sel-taken{color:var(--red);font-weight:800}
+
+/* BOTTOM strip */
+.bottom-strip{
+  border-top:1px solid var(--border);
+  background:#0b0f2ae6;
+  padding:9px 16px;
+  display:flex;align-items:center;gap:14px;flex-wrap:wrap;z-index:40;
+  font-size:12px;
+}
+.pill{
+  background:#18204a;border:1px solid #2e3a72;color:#d0d6ff;
+  padding:6px 11px;border-radius:999px;font-weight:700;font-size:12px;cursor:pointer;white-space:nowrap
+}
+.pill.active{background:#2b3a8a;border-color:#5671ff;color:#fff}
+.pill b{color:var(--gold)}
+
+/* SETTINGS MODAL */
+.settings-backdrop{
+  position:fixed;inset:0;background:rgba(2,4,12,.72);backdrop-filter:blur(8px);
+  z-index:200;display:none;align-items:center;justify-content:center;
+}
+.settings-backdrop.open{display:flex}
+.settings-modal{
+  width:min(860px,94vw);max-height:88vh;
+  background:linear-gradient(180deg,#151b3d,#0f1330);
+  border:1px solid #3a447a;border-radius:22px;overflow:hidden;
+  box-shadow:0 30px 90px rgba(0,0,0,.7);
+  display:flex;flex-direction:column;
+  animation:pop .18s ease;
+}
+@keyframes pop{from{transform:translateY(10px) scale(.985);opacity:0}to{transform:none;opacity:1}}
+.set-head{
+  padding:16px 18px;display:flex;align-items:center;justify-content:space-between;
+  background:linear-gradient(135deg,#1d2450,#171c3d);border-bottom:1px solid #2d356b
+}
+.set-head h2{font-size:18px;font-weight:900}
+.set-close{background:#232a5a;border:1px solid #3b4688;color:#cdd5ff;padding:7px 12px;border-radius:10px;cursor:pointer;font-weight:750}
+.set-body{display:grid;grid-template-columns:220px 1fr;min-height:0;flex:1}
+.set-nav{background:#101533;border-right:1px solid #283062;padding:12px;display:flex;flex-direction:column;gap:6px}
+.snav{
+  text-align:left;padding:11px 12px;border-radius:12px;border:1px solid transparent;
+  background:transparent;color:#b8c1ee;font-weight:730;font-size:13px;cursor:pointer
+}
+.snav.active{background:#1c2455;border-color:#3f4da8;color:#fff}
+.set-content{padding:18px;overflow:auto}
+.set-section{display:none}
+.set-section.active{display:block}
+.set-section h3{font-size:15px;margin-bottom:10px}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:12px;color:var(--muted);margin-bottom:5px;font-weight:650}
+.field input,.field select{
+  width:100%;background:#0e1330;border:1px solid #2f3a70;color:#e8ecff;
+  padding:10px 12px;border-radius:11px;font-size:13px;outline:none
+}
+.field input:focus,.field select:focus{border-color:#5a6ef5;box-shadow:0 0 0 3px rgba(90,110,245,.15)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.toggle{
+  display:flex;align-items:center;justify-content:space-between;
+  background:#131940;border:1px solid #2c3770;padding:11px 12px;border-radius:12px;margin-bottom:10px
+}
+.toggle span{font-size:13px;font-weight:650}
+.switch{width:46px;height:26px;background:#2a335f;border-radius:999px;position:relative;cursor:pointer;transition:.18s}
+.switch.on{background:#00c26a}
+.switch i{position:absolute;top:3px;left:3px;width:20px;height:20px;background:#fff;border-radius:50%;transition:.18s}
+.switch.on i{left:23px}
+.note{background:#19204a;border:1px dashed #3a4788;color:#aeb8f0;padding:10px 12px;border-radius:12px;font-size:12px;line-height:1.5}
+.savebar{padding:13px 18px;border-top:1px solid #2c356b;background:#111735;display:flex;gap:10px;justify-content:flex-end}
+.btn-save{background:linear-gradient(135deg,#00d782,#00a86a);color:#05291a;border:none;padding:11px 18px;border-radius:12px;font-weight:900;cursor:pointer}
+.btn-cancel{background:#232a55;color:#c9d1ff;border:1px solid #3a4580;padding:11px 16px;border-radius:12px;font-weight:800;cursor:pointer}
+
+/* toast */
+.toast-host{position:fixed;top:76px;left:50%;transform:translateX(-50%);z-index:300}
+.toast{
+  background:#11193ae8;border:1px solid #3c4a8a;padding:10px 16px;border-radius:13px;
+  font-weight:750;font-size:13px;backdrop-filter:blur(10px);box-shadow:0 10px 30px rgba(0,0,0,.45);
+  animation:tin .22s ease;
+}
+@keyframes tin{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
+
+/* small screens */
+@media (max-width:760px){
+  .set-body{grid-template-columns:1fr}
+  .set-nav{flex-direction:row;overflow:auto}
+  .snav{white-space:nowrap}
+  .ruler-window{width:210px;right:8px}
+  .map-gear{top:52px;right:8px;width:42px;height:42px}
+}
+</style>
+</head>
+<body>
+<div class="stage" id="app">
+
+  <!-- TOP -->
+  <div class="topbar">
+    <div class="brand">
+      <div class="logo">TR</div>
+      <div>
+        <h1>Türkiye Fetih – TikTok LIVE</h1>
+        <small>1 JETON = 1 TOPRAK • BEĞEN & TAKİP → FETİH</small>
+      </div>
+      <span class="livepill"><span class="dot"></span> CANLI</span>
+    </div>
+    <div class="top-stats">
+      <div class="ts"><b id="vTop">14.7K</b><span>izleyici</span></div>
+      <div class="ts"><b id="lTop">2.48M</b><span>❤️ beğeni</span></div>
+      <div class="ts"><b id="fTop">8.2K</b><span>takipçi</span></div>
+      <div class="ts"><b id="kTop">81</b><span>boş il</span></div>
+    </div>
+  </div>
+
+  <!-- MAIN HORIZONTAL -->
+  <div class="main">
+    <!-- MAP -->
+    <div class="map-col">
+      <div class="map-toolbar">
+        <div class="left-tools">
+          <span class="mt-stat">🗺️ <b>81</b> il</span>
+          <span class="mt-stat">👑 <b id="rulerCountInline">0</b> hükümdar</span>
+          <span class="mt-stat">⚡ <b id="speedLabel">Otomatik</b></span>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <div class="chip-sm on" id="autoChip">⚡ OTOMATİK AÇIK</div>
+          <div class="chip-sm" id="pauseChip">⏸️ Durdur</div>
+          <div class="chip-sm" id="resetChip">🔄 Sıfırla</div>
+        </div>
+      </div>
+
+      <div class="map-stage">
+        <div id="turkey-map" style="width:100%;height:100%"></div>
+
+        <!-- SETTINGS GEAR ÜSTTE -->
+        <div class="map-gear" id="openSettings" title="Ayarlar">
+          ⚙️
+          <small>AYAR</small>
+        </div>
+
+        <!-- HÜKÜMDAR LİSTESİ AYRI PENCERE -->
+        <div class="ruler-window" id="rulerWindow">
+          <div class="ruler-header" id="rulerDrag">
+            <h3>👑 Hükümdar Listesi</h3>
+            <button class="ruler-min" id="rulerMin">—</button>
+          </div>
+          <div class="ruler-body" id="rulerBody"></div>
+        </div>
+
+        <div class="live-feed" id="liveFeed"></div>
+      </div>
+    </div>
+
+    <!-- RIGHT CONTROL -->
+    <div class="right-col">
+      <div class="right-tabs">
+        <div class="rtab active" data-tab="play">🎮 Oyna</div>
+        <div class="rtab" data-tab="live">📡 Canlı</div>
+        <div class="rtab" data-tab="lider">🏆 Lider</div>
+      </div>
+      <div class="right-body" id="rightBody">
+        <!-- PLAY TAB -->
+        <div class="rtab-panel" id="panel-play">
+          <div class="rcard">
+            <div class="user-card">
+              <div class="u-avatar-big" id="curAvatar">S</div>
+              <div class="u-meta">
+                <div class="uname" id="curName">@sen_hukumdar</div>
+                <div class="usub"><span id="curLands">0</span> il • <span id="curFollowTxt" style="color:#ff6b8a">takip yok</span></div>
+              </div>
+              <div class="coin-big">🪙 <span id="curCoins">3</span></div>
+            </div>
+          </div>
+
+          <div class="rcard">
+            <h4>Seçili İl</h4>
+            <div class="selbox" id="selBox" style="display:none">
+              <div>
+                <strong id="selName">—</strong>
+                <div class="muted" id="selSub">—</div>
+              </div>
+              <div id="selState" class="sel-free">BOŞ</div>
+            </div>
+            <div id="selEmpty" class="muted">Haritadan bir ile tıkla. Yatay harita – tam 81 il.</div>
+          </div>
+
+          <div class="grid3" style="margin-bottom:10px">
+            <button class="btn btn-pink" id="followBtn">+ Takip</button>
+            <button class="btn btn-dark" id="likeBtn">❤️ Beğen</button>
+            <button class="btn btn-gold" id="giftBtn">🎁 Hediye</button>
+          </div>
+          <button class="btn btn-green full" id="claimBtn" disabled style="padding:15px;font-size:15px">İL SEÇ – 1 JETON = 1 TOPRAK</button>
+          <div class="muted" style="text-align:center;margin-top:8px;font-size:11.5px">Beğeni & Takip edenler toprak alabilir • TikTok uyumlu</div>
+        </div>
+
+        <div class="rtab-panel" id="panel-live" style="display:none">
+          <div class="rcard">
+            <h4>📡 TikTok LIVE bağlantısı</h4>
+            <div class="muted">Ayarlar ⚙️ → TikTok Bağlantı sekmesinden kullanıcı adını gir. Şu an simülasyon modunda.</div>
+            <div style="margin-top:10px;display:grid;gap:8px;font-size:12.5px">
+              <div>Durum: <b id="liveStatusText" style="color:#00e676">Simülasyon ●</b></div>
+              <div>Beğeni eşiği: <b id="liveLikeThresh">3</b> beğeni = 1 🪙</div>
+              <div>Takip zorunlu: <b id="liveFollowReq">EVET</b></div>
+            </div>
+            <button class="btn btn-dark full" style="margin-top:10px" id="openSettings2">⚙️ Bağlantı Ayarlarını Aç</button>
+          </div>
+          <div class="rcard">
+            <h4>Canlı Akış</h4>
+            <div id="miniFeed" style="max-height:220px;overflow:auto;font-size:12.5px;line-height:1.6;color:#c9d0f5"></div>
+          </div>
+        </div>
+
+        <div class="rtab-panel" id="panel-lider" style="display:none">
+          <div class="rcard">
+            <h4>🏆 Anlık Lider Tablosu</h4>
+            <div id="leaderInline"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOTTOM STRIP: hızlı oyuncu switch -->
+  <div class="bottom-strip" id="playerStrip"></div>
+</div>
+
+<!-- SETTINGS MODAL -->
+<div class="settings-backdrop" id="settingsModal">
+  <div class="settings-modal">
+    <div class="set-head">
+      <h2>⚙️ Fetih Ayarları – TikTok Uyumlu</h2>
+      <button class="set-close" id="closeSettings">Kapat ✕</button>
+    </div>
+    <div class="set-body">
+      <div class="set-nav">
+        <button class="snav active" data-s="tiktok">📡 TikTok Bağlantı</button>
+        <button class="snav" data-s="begen">❤️ Beğeni</button>
+        <button class="snav" data-s="takip">👥 Takip</button>
+        <button class="snav" data-s="fetih">🗺️ Fetih / Jeton</button>
+        <button class="snav" data-s="sistem">⚡ Sistem</button>
+      </div>
+      <div class="set-content">
+        <!-- TIKTOK -->
+        <div class="set-section active" id="s-tiktok">
+          <h3>📡 TikTok LIVE Bağlantı Ayarı</h3>
+          <div class="row2">
+            <div class="field"><label>TikTok Kullanıcı Adı (@ olmadan)</label><input id="in_tt_user" placeholder="TurkiyeFetih" value="TurkiyeFetih"></div>
+            <div class="field"><label>Yayın / Session ID (opsiyonel)</label><input id="in_tt_session" placeholder="live-..."></div>
+          </div>
+          <div class="row2">
+            <div class="field"><label>Bağlantı modu</label>
+              <select id="in_tt_mode">
+                <option value="sim" selected>Simülasyon (yerleşik botlar)</option>
+                <option value="ws">WebSocket Köprüsü</option>
+                <option value="tiktok-live-connector">tiktok-live-connector (Node)</option>
+              </select>
+            </div>
+            <div class="field"><label>WebSocket URL</label><input id="in_tt_ws" placeholder="ws://localhost:8080/tiktok"></div>
+          </div>
+          <div class="toggle"><span>Gerçek canlı yorumları haritaya yansıt</span><div class="switch" id="sw_live_comments"><i></i></div></div>
+          <div class="toggle"><span>Hediyeleri jetona çevir</span><div class="switch on" id="sw_gift_coin"><i></i></div></div>
+          <div class="note">Gerçek TikTok bağlantısı için: <b>tiktok-live-connector</b> ile bir Node bridge çalıştırıp WebSocket URL’ini yukarıya yazın. Beğeni, takip, chat, gift eventleri otomatik 1 jeton = 1 toprak sistemine akar.</div>
+          <div style="margin-top:12px;display:flex;gap:8px">
+            <button class="btn btn-dark" id="btnTestConnect">🔌 Bağlantıyı Test Et</button>
+            <button class="btn btn-pink" id="btnConnectTT">Bağlan</button>
+          </div>
+        </div>
+
+        <!-- BEĞENİ -->
+        <div class="set-section" id="s-begen">
+          <h3>❤️ Beğeni Ayarları</h3>
+          <div class="row2">
+            <div class="field"><label>Kaç beğeni = 1 jeton</label><input type="number" id="in_like_per_coin" value="3" min="1" max="50"></div>
+            <div class="field"><label>Beğeni başına izleyici artışı</label><input type="number" id="in_like_view" value="1" min="0" max="10"></div>
+          </div>
+          <div class="toggle"><span>Beğeni jeton kazandırsın</span><div class="switch on" id="sw_like_coin"><i></i></div></div>
+          <div class="toggle"><span>Otomatik beğeni yağmuru (simülasyon)</span><div class="switch on" id="sw_like_rain"><i></i></div></div>
+          <div class="field"><label>Maks tek seferlik beğeni burst</label><input type="number" id="in_like_burst" value="44" min="5" max="200"></div>
+          <div class="note">TikTok’ta beğeni spam serbesttir. Önerilen: 3 beğeni = 1 jeton. Yayın hızına göre 1–5 arası ideal.</div>
+        </div>
+
+        <!-- TAKİP -->
+        <div class="set-section" id="s-takip">
+          <h3>👥 Takip Ayarları</h3>
+          <div class="toggle"><span>Toprak almak için takip zorunlu</span><div class="switch on" id="sw_follow_required"><i></i></div></div>
+          <div class="row2">
+            <div class="field"><label>Takip bonusu (jeton)</label><input type="number" id="in_follow_bonus" value="1" min="0" max="5"></div>
+            <div class="field"><label>Takip etmeyen tıklayabilir mi?</label>
+              <select id="in_follow_click">
+                <option value="no" selected>Hayır – kilitli</option>
+                <option value="yes">Evet – uyarı göster</option>
+              </select>
+            </div>
+          </div>
+          <div class="toggle"><span>Yeni takipçiyi otomatik oyuncu listesine ekle</span><div class="switch on" id="sw_auto_add_follower"><i></i></div></div>
+          <div class="note"><b>Beğeni ve takip edenler toprağı alır</b> – kuralı budur. Takip zorunlu AÇIK bırakılması önerilir. Bonus 1 jeton idealdir.</div>
+        </div>
+
+        <!-- FETİH -->
+        <div class="set-section" id="s-fetih">
+          <h3>🗺️ Fetih / Jeton Mantığı – 1 Jeton 1 Toprak</h3>
+          <div class="field"><label>1 il kaç jeton?</label>
+            <input type="number" id="in_coin_cost" value="1" min="1" max="5" readonly style="background:#111735;font-weight:900;color:#ffd166">
+            <div class="muted" style="margin-top:4px">Sistem kilitli: <b style="color:#ffd166">1 JETON = 1 TOPRAK</b> – FULL mantık</div>
+          </div>
+          <div class="row2">
+            <div class="field"><label>Oyuncu başı max il</label><input type="number" id="in_max_land" value="81" min="1" max="81"></div>
+            <div class="field"><label>Aynı ile 2. fetih?</label>
+              <select id="in_double_claim">
+                <option selected>Engelle – Tek sahip</option>
+                <option>İzin ver – Üstüne yaz</option>
+              </select>
+            </div>
+          </div>
+          <div class="toggle"><span>Rastgele il öner (boş il highlight)</span><div class="switch on" id="sw_suggest"><i></i></div></div>
+          <div class="toggle"><span>Fetihte animasyon / ses</span><div class="switch on" id="sw_fx"><i></i></div></div>
+          <div class="note">YATAY HARİTA modu aktif. 81 il tek tek tıklanabilir. Coin sistemi değişmez.</div>
+        </div>
+
+        <!-- SİSTEM -->
+        <div class="set-section" id="s-sistem">
+          <h3>⚡ Sistem</h3>
+          <div class="row2">
+            <div class="field"><label>Otomatik fetih hızı (ms)</label><input type="number" id="in_auto_speed" value="900" min="120" max="3000" step="50"></div>
+            <div class="field"><label>Bot oyuncu sayısı</label><input type="number" id="in_bot_count" value="16" min="0" max="40"></div>
+          </div>
+          <div class="toggle"><span>Otomatik fetih AÇIK başlasın</span><div class="switch on" id="sw_auto_start"><i></i></div></div>
+          <div class="toggle"><span>Yatay harita modu</span><div class="switch on" id="sw_horizontal"><i></i></div></div>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button class="btn btn-dark" id="btnExport">💾 Ayarları Dışa Aktar</button>
+            <button class="btn btn-dark" id="btnResetCfg">↺ Varsayılan</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="savebar">
+      <button class="btn-cancel" id="cancelSettings">Vazgeç</button>
+      <button class="btn-save" id="saveSettings">💾 Kaydet & Uygula</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-host" id="toastHost"></div>
+
+<!-- D3 -->
+<script>
