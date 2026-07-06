@@ -1,31 +1,25 @@
 {
-  "name": "turkiye-fetih-tiktok-live",
-  "version": "2.0.0",
-  "description": "TikTok LIVE Türkiye Fetih Haritası – 1 Jeton 1 Toprak – Railway Ready",
+  "name": "tiktok-castle-conquest-pro",
+  "version": "1.0.0",
+  "description": "TikTok Live interaktif 5 takımlı kale kuşatma oyunu.",
   "main": "server.js",
-  "type": "module",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node --watch server.js"
-  },
-  "engines": {
-    "node": ">=18"
-  },
-  "dependencies": {
-    "express": "^4.21.1",
-    "socket.io": "^4.8.1",
-    "tiktok-live-connector": "^2.4.0",
-    "cors": "^2.8.5",
-    "dotenv": "^16.4.5"
+    "start": "node server.js"
   },
   "keywords": [
     "tiktok",
     "live",
-    "turkey",
-    "map",
     "game",
+    "interactive",
+    "socket.io",
     "railway"
   ],
-  "author": "Turkiye Fetih",
-  "license": "MIT"
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.19.2",
+    "socket-io": "^1.0.0",
+    "socket.io": "^4.7.5",
+    "tiktok-live-connector": "^1.1.8"
+  }
 }
